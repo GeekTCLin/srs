@@ -72,7 +72,7 @@ int SrsBuffer::pos()
 
 int SrsBuffer::left()
 {
-    return nb_bytes - (int)(p - bytes);
+    return nb_bytes - pos();
 }
 
 bool SrsBuffer::empty()
@@ -86,7 +86,7 @@ bool SrsBuffer::require(int required_size)
         return false;
     }
     
-    return required_size <= nb_bytes - (p - bytes);
+    return required_size <= left();
 }
 
 void SrsBuffer::skip(int size)
@@ -390,11 +390,12 @@ bool SrsBitBuffer::require_bits(int n)
 
 int8_t SrsBitBuffer::read_bit() {
     if (!cb_left) {
+        // 提取出一个字节
         srs_assert(!stream->empty());
         cb = stream->read_1bytes();
         cb_left = 8;
     }
-    
+    // 逐一取出 单个bit
     int8_t v = (cb >> (cb_left - 1)) & 0x01;
     cb_left--;
     return v;
@@ -458,6 +459,10 @@ int32_t SrsBitBuffer::read_32bits()
     return read_bits(32);
 }
 
+// v 用于返回
+// 获取 无符号指数哥伦布编码
+// 哥伦布编码主要用于压缩数据
+// https://www.cnblogs.com/bonelee/p/6878992.html 后续学习下
 srs_error_t SrsBitBuffer::read_bits_ue(uint32_t& v)
 {
     srs_error_t err = srs_success;
@@ -474,11 +479,13 @@ srs_error_t SrsBitBuffer::read_bits_ue(uint32_t& v)
     //          b = read_bits( 1 )
     // The variable codeNum is then assigned as follows:
     //      codeNum = (2<<leadingZeroBits) - 1 + read_bits( leadingZeroBits )
+    // 统计 0 的 bit 位个数？
     int leadingZeroBits = -1;
     for (int8_t b = 0; !b && !empty(); leadingZeroBits++) {
         b = read_bit();
     }
 
+    // 不能超过 31个
     if (leadingZeroBits >= 31) {
         return srs_error_new(ERROR_HEVC_NALU_UEV, "%dbits overflow 31bits", leadingZeroBits);
     }

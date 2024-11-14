@@ -80,11 +80,11 @@ public:
 class SrsBuffer
 {
 private:
-    // current position at bytes.
+    // current position at bytes.   当前字节处理位置
     char* p;
-    // the bytes data for buffer to read or write.
+    // the bytes data for buffer to read or write. 起始位置
     char* bytes;
-    // the total number of bytes.
+    // the total number of bytes.   字节容量
     int nb_bytes;
 public:
     // Create buffer with data b and size nn.
@@ -161,12 +161,13 @@ public:
 /**
  * the bit buffer, base on SrsBuffer,
  * for exmaple, the h.264 avc buffer is bit buffer.
+ * bit buffer 用于兼容单次1 bit 数据的读取
  */
 class SrsBitBuffer
 {
 private:
-    int8_t cb;
-    uint8_t cb_left;
+    int8_t cb;              // 供读取的单个字节
+    uint8_t cb_left;        // 剩余bit读取数目 范围 0-8
     SrsBuffer* stream;
 public:
     SrsBitBuffer(SrsBuffer* b);
