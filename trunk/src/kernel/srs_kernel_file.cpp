@@ -31,8 +31,28 @@ srs_fwrite_t _srs_fwrite_fn = ::fwrite;
 srs_fread_t _srs_fread_fn = ::fread;
 srs_fseek_t _srs_fseek_fn = ::fseek;
 srs_fclose_t _srs_fclose_fn = ::fclose;
+// C 库函数 long int ftell(FILE *stream) 返回给定流 stream 的当前文件位置
 srs_ftell_t _srs_ftell_fn = ::ftell;
+/**
+ *  C 库函数 int setvbuf(FILE *stream, char *buffer, int mode, size_t size) 定义流 stream 应如何缓冲
+ *  _IOFBF	全缓冲：对于输出，数据在缓冲填满时被一次性写入。对于输入，缓冲会在请求输入且缓冲为空时被填充。
+    _IOLBF	行缓冲：对于输出，数据在遇到换行符或者在缓冲填满时被写入，具体视情况而定。对于输入，缓冲会在请求输入且缓冲为空时被填充，直到遇到下一个换行符。
+    _IONBF	无缓冲：不使用缓冲。每个 I/O 操作都被即时写入。buffer 和 size 参数被忽略。
+ */
 srs_setvbuf_t _srs_setvbuf_fn = ::setvbuf;
+
+/**
+ * 扩展学习
+ * 对大文件写操作时谨慎使用fseek/lseek
+ * https://blog.csdn.net/u013259321/article/details/112236792
+ * 
+ * Linux开发：lseek()函数和fseek()函数的使用详解
+ * https://cloud.tencent.com/developer/article/2430872
+ * fseek 是 C 语言标准库中的一个函数，用于在流（通常是文件）中设置文件位置指针。它与 lseek 不同
+ * fseek 是针对流的 
+ * lseek 是针对文件描述符的
+ * fseek 通常用于 FILE* 指针，这是 C 标准 I/O 库中使用的文件流类型
+ */
 
 SrsFileWriter::SrsFileWriter()
 {
@@ -187,6 +207,8 @@ srs_error_t SrsFileWriter::lseek(off_t offset, int whence, off_t* seeked)
 
     return srs_success;
 }
+
+// ------------------SrsFileWriter End------------------------------
 
 ISrsFileReaderFactory::ISrsFileReaderFactory()
 {

@@ -22,12 +22,13 @@ class SrsFileReader;
 
 /**
  * file writer, to write to file.
+ * file & writer 实现类
  */
 class SrsFileWriter : public ISrsWriteSeeker
 {
 private:
     std::string path_;
-    FILE *fp_;
+    FILE *fp_;          // 这里区别下面Reader， 使用 FILE*
     char *buf_;
 public:
     SrsFileWriter();
@@ -35,12 +36,14 @@ public:
 public:
     /**
      * set io buf size
+     * 设置 buf_ 字符数组长度（申请新空间）
     */
    virtual srs_error_t set_iobuf_size(int size);
 
     /**
      * open file writer, in truncate mode.
      * @param p a string indicates the path of file to open.
+     * 打开文件
      */
     virtual srs_error_t open(std::string p);
     /**
@@ -76,12 +79,13 @@ public:
 
 /**
  * file reader, to read from file.
+ * Reader & Seeker 实现类
  */
 class SrsFileReader : public ISrsReadSeeker
 {
 private:
     std::string path;
-    int fd;
+    int fd;                 // 这里区别于上面的写，使用的是fd，对应使用fseek 进行skip
 public:
     SrsFileReader();
     virtual ~SrsFileReader();

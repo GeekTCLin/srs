@@ -9,6 +9,11 @@
 
 #include <srs_core.hpp>
 
+/**
+ * srs_kernel_io.hpp
+ * 定义文件io操作接口
+ */
+
 // for srs-librtmp, @see https://github.com/ossrs/srs/issues/213
 #ifndef _WIN32
 #include <sys/uio.h>
@@ -16,6 +21,7 @@
 
 /**
  * The reader to read data from channel.
+ * Read 接口
  */
 class ISrsReader
 {
@@ -32,6 +38,7 @@ public:
 
 /**
  * The seeker to seek with a device.
+ * Seek 接口
  */
 class ISrsSeeker
 {
