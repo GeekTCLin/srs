@@ -22,6 +22,7 @@
 //
 // Note that do not support array or object created by malloc, because we only use delete to dispose
 // the resource.
+// 不支持 malloc 申请的内存空间
 template<class T>
 class SrsUniquePtr
 {

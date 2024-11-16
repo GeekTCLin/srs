@@ -17,15 +17,16 @@ class SrsBuffer;
 class ISrsStreamWriter;
 
 // Transmux the RTMP packets to AAC stream.
+// 将 RTMP packets 转换为 AAC ？
 class SrsAacTransmuxer
 {
 private:
     ISrsStreamWriter* writer;
 private:
-    SrsAacObjectType aac_object;
-    int8_t aac_sample_rate;
-    int8_t aac_channels;
-    bool got_sequence_header;
+    SrsAacObjectType aac_object_;
+    int8_t aac_sample_rate_;
+    int8_t aac_channels_;
+    bool got_sequence_header_;
 public:
     SrsAacTransmuxer();
     virtual ~SrsAacTransmuxer();

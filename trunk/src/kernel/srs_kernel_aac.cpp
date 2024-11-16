@@ -25,10 +25,10 @@ using namespace std;
 SrsAacTransmuxer::SrsAacTransmuxer()
 {
     writer = NULL;
-    got_sequence_header = false;
-    aac_object = SrsAacObjectTypeReserved;
-    aac_sample_rate = 0;
-    aac_channels = 0;
+    got_sequence_header_ = false;
+    aac_object_ = SrsAacObjectTypeReserved;
+    aac_sample_rate_ = 0;
+    aac_channels_ = 0;
 }
 
 SrsAacTransmuxer::~SrsAacTransmuxer()
@@ -78,6 +78,7 @@ srs_error_t SrsAacTransmuxer::write_audio(int64_t timestamp, char* data, int siz
     }
     
     SrsAudioAacFrameTrait aac_packet_type = (SrsAudioAacFrameTrait)stream->read_1bytes();
+    // 1. 读取头部
     if (aac_packet_type == SrsAudioAacFrameTraitSequenceHeader) {
         // AudioSpecificConfig
         // 1.6.2.1 AudioSpecificConfig, in ISO_IEC_14496-3-AAC-2001.pdf, page 33.
@@ -91,20 +92,21 @@ srs_error_t SrsAacTransmuxer::write_audio(int64_t timestamp, char* data, int siz
         }
         
         int8_t audioObjectType = stream->read_1bytes();
-        aac_sample_rate = stream->read_1bytes();
+        aac_sample_rate_ = stream->read_1bytes();
         
-        aac_channels = (aac_sample_rate >> 3) & 0x0f;
-        aac_sample_rate = ((audioObjectType << 1) & 0x0e) | ((aac_sample_rate >> 7) & 0x01);
+        aac_channels_ = (aac_sample_rate_ >> 3) & 0x0f;
+        aac_sample_rate_ = ((audioObjectType << 1) & 0x0e) | ((aac_sample_rate_ >> 7) & 0x01);
         
         audioObjectType = (audioObjectType >> 3) & 0x1f;
-        aac_object = (SrsAacObjectType)audioObjectType;
+        aac_object_ = (SrsAacObjectType)audioObjectType;
         
-        got_sequence_header = true;
+        got_sequence_header_ = true;
         
         return err;
     }
     
-    if (!got_sequence_header) {
+    // 估计数据在多个packet，本函数调用多次，无解析 packet header 错误
+    if (!got_sequence_header_) {
         return srs_error_new(ERROR_AAC_DECODE_ERROR, "aac no sequence header");
     }
     
@@ -122,6 +124,8 @@ srs_error_t SrsAacTransmuxer::write_audio(int64_t timestamp, char* data, int siz
     // adts_variable_header:
     //      28bits
     //      12+16+28=56bits
+    // aac_fixed_header[7] 共 56bit
+
     // adts_error_check:
     //      16bits if protection_absent
     //      56+16=72bits
@@ -129,7 +133,9 @@ srs_error_t SrsAacTransmuxer::write_audio(int64_t timestamp, char* data, int siz
     //      require(7bytes)=56bits
     // else
     //      require(9bytes)=72bits
-    char aac_fixed_header[7];
+
+    // 2. 解析 aac 数据
+    char aac_fixed_header[7];       // adts_fixed_header + adts_variable_header
     if(true) {
         char* pp = aac_fixed_header;
         int16_t aac_frame_length = aac_raw_length + 7;
@@ -149,13 +155,13 @@ srs_error_t SrsAacTransmuxer::write_audio(int64_t timestamp, char* data, int siz
         // channel_configuration 3 uimsbf
         // original/copy 1 bslbf
         // home 1 bslbf
-        SrsAacProfile aac_profile = srs_aac_rtmp2ts(aac_object);
-        *pp++ = ((aac_profile << 6) & 0xc0) | ((aac_sample_rate << 2) & 0x3c) | ((aac_channels >> 2) & 0x01);
+        SrsAacProfile aac_profile = srs_aac_rtmp2ts(aac_object_);
+        *pp++ = ((aac_profile << 6) & 0xc0) | ((aac_sample_rate_ << 2) & 0x3c) | ((aac_channels_ >> 2) & 0x01);
         // 4bits left.
         // adts_variable_header(), 1.A.2.2.2 Variable Header of ADTS
         // copyright_identification_bit 1 bslbf
         // copyright_identification_start 1 bslbf
-        *pp++ = ((aac_channels << 6) & 0xc0) | ((aac_frame_length >> 11) & 0x03);
+        *pp++ = ((aac_channels_ << 6) & 0xc0) | ((aac_frame_length >> 11) & 0x03);
         
         // aac_frame_length 13 bslbf: Length of the frame including headers and error_check in bytes.
         // use the left 2bits as the 13 and 12 bit,
@@ -168,12 +174,12 @@ srs_error_t SrsAacTransmuxer::write_audio(int64_t timestamp, char* data, int siz
         *pp++ = 0xfc;
     }
     
-    // write 7bytes fixed header.
+    // write 7bytes fixed header. 写入 7字节 头部
     if ((err = writer->write(aac_fixed_header, 7, NULL)) != srs_success) {
         return srs_error_wrap(err, "write aac header");
     }
     
-    // write aac frame body.
+    // write aac frame body. 写入 生息 aac body 字节
     if ((err = writer->write(data + stream->pos(), aac_raw_length, NULL)) != srs_success) {
         return srs_error_wrap(err, "write aac frame");
     }
