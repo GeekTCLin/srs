@@ -198,14 +198,14 @@ public:
 class SrsRtpHeader// : public ISrsCodec
 {
 private:
-    uint8_t padding_length;
-    uint8_t cc;
-    bool marker;
-    uint8_t payload_type;
-    uint16_t sequence;
-    uint32_t timestamp;
-    uint32_t ssrc;
-    uint32_t csrc[15];
+    uint8_t padding_length_;
+    uint8_t cc_;
+    bool marker_;
+    uint8_t payload_type_;
+    uint16_t sequence_;
+    uint32_t timestamp_;
+    uint32_t ssrc_;
+    uint32_t csrc_[15];
     SrsRtpExtensions extensions_;
     bool ignore_padding_;
 public:

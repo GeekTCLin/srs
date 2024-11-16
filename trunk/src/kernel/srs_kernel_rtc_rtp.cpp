@@ -519,21 +519,43 @@ srs_error_t SrsRtpExtensions::set_audio_level(int id, uint8_t level)
 
 SrsRtpHeader::SrsRtpHeader()
 {
-    cc               = 0;
-    marker           = false;
-    payload_type     = 0;
-    sequence         = 0;
-    timestamp        = 0;
-    ssrc             = 0;
-    padding_length   = 0;
-    ignore_padding_  = false;
-    memset(csrc, 0, sizeof(csrc));
+    cc_               = 0;
+    marker_           = false;
+    payload_type_     = 0;
+    sequence_         = 0;
+    timestamp_        = 0;
+    ssrc_             = 0;
+    padding_length_   = 0;
+    ignore_padding_   = false;
+    memset(csrc_, 0, sizeof(csrc_));
 }
 
 SrsRtpHeader::~SrsRtpHeader()
 {
 }
 
+// 从buf 解析 RTP 头部
+/**
+ * RTP头部包含多个重要字段。
+ * 
+   首先是版本号（V）字段，占2位，用于标识RTP的版本，目前常用版本为2。
+
+   填充位（P）占1位，如果设置为1，表示该RTP包末尾包含填充字节。
+
+   扩展位（X）占1位，当设置为1时，表示RTP头部后面跟有一个扩展头部。
+
+   参与源计数（CC）字段占4位，它指示了CSRC（Contributing Source Identifiers）列表中的源数目。
+
+   标记位（M）占1位，它的含义根据具体的应用场景而定，例如在音频流中可能用于标记音频帧的边界。
+
+   载荷类型（PT）字段占7位，用于标识RTP载荷的类型，不同的载荷类型对应不同的音视频编码格式，如载荷类型96 127是动态分配的，可用于新出现的编码格式。
+
+   序列号占16位，用于对每个RTP包进行编号，接收端可以通过序列号来检测包的丢失和恢复包的顺序。
+
+   时间戳占32位，它反映了RTP数据包中载荷数据的采样时刻，对于音频和视频等连续媒体的同步非常重要。
+
+   同步源标识符（SSRC）占32位，用于标识RTP流的发送源，在同一个RTP会话中，每个发送源都有一个唯一的SSRC。
+ */
 srs_error_t SrsRtpHeader::decode(SrsBuffer* buf)
 {
     srs_error_t err = srs_success;
@@ -558,25 +580,25 @@ srs_error_t SrsRtpHeader::decode(SrsBuffer* buf)
     */
 
     uint8_t first = buf->read_1bytes();
-    bool padding = (first & 0x20);
-    bool extension = (first & 0x10);
-    cc = (first & 0x0F);
+    bool padding = (first & 0x20);      // p    填充位置 第3个 bit
+    bool extension = (first & 0x10);    // x    扩展位置 第4个 bit
+    cc_ = (first & 0x0F);                // cc   参与源计数 bis [5，6，7，8]
 
     uint8_t second = buf->read_1bytes();
-    marker = (second & 0x80);
-    payload_type = (second & 0x7F);
+    marker_ = (second & 0x80);           // M    标记位 第9个bit
+    payload_type_ = (second & 0x7F);     // PT   载荷类型    bits [10 : 16]
 
-    sequence = buf->read_2bytes();
-    timestamp = buf->read_4bytes();
-    ssrc = buf->read_4bytes();
+    sequence_ = buf->read_2bytes();
+    timestamp_ = buf->read_4bytes();
+    ssrc_ = buf->read_4bytes();
 
     int ext_bytes = nb_bytes() - kRtpHeaderFixedSize;
     if (!buf->require(ext_bytes)) {
         return srs_error_new(ERROR_RTC_RTP_MUXER, "requires %d+ bytes", ext_bytes);
     }
 
-    for (uint8_t i = 0; i < cc; ++i) {
-        csrc[i] = buf->read_4bytes();
+    for (uint8_t i = 0; i < cc_; ++i) {
+        csrc_[i] = buf->read_4bytes();
     }    
 
     if (extension) {
@@ -586,9 +608,9 @@ srs_error_t SrsRtpHeader::decode(SrsBuffer* buf)
     }
 
     if (padding && !ignore_padding_ && !buf->empty()) {
-        padding_length = *(reinterpret_cast<uint8_t*>(buf->data() + buf->size() - 1));
-        if (!buf->require(padding_length)) {
-            return srs_error_new(ERROR_RTC_RTP_MUXER, "padding requires %d bytes", padding_length);
+        padding_length_ = *(reinterpret_cast<uint8_t*>(buf->data() + buf->size() - 1));
+        if (!buf->require(padding_length_)) {
+            return srs_error_new(ERROR_RTC_RTP_MUXER, "padding requires %d bytes", padding_length_);
         }
     }
 
@@ -612,8 +634,8 @@ srs_error_t SrsRtpHeader::encode(SrsBuffer* buf)
     // Encode the RTP fix header, 12bytes.
     // @see https://tools.ietf.org/html/rfc1889#section-5.1
     // The version, padding, extension and cc, total 1 byte.
-    uint8_t v = 0x80 | cc;
-    if (padding_length > 0) {
+    uint8_t v = 0x80 | cc_;
+    if (padding_length_ > 0) {
         v |= 0x20;
     }
     if (extensions_.exists()) {
@@ -622,24 +644,24 @@ srs_error_t SrsRtpHeader::encode(SrsBuffer* buf)
     buf->write_1bytes(v);
 
     // The marker and payload type, total 1 byte.
-    v = payload_type;
-    if (marker) {
+    v = payload_type_;
+    if (marker_) {
         v |= kRtpMarker;
     }
     buf->write_1bytes(v);
 
     // The sequence number, 2 bytes.
-    buf->write_2bytes(sequence);
+    buf->write_2bytes(sequence_);
 
     // The timestamp, 4 bytes.
-    buf->write_4bytes(timestamp);
+    buf->write_4bytes(timestamp_);
 
     // The SSRC, 4 bytes.
-    buf->write_4bytes(ssrc);
+    buf->write_4bytes(ssrc_);
 
     // The CSRC list: 0 to 15 items, each is 4 bytes.
-    for (size_t i = 0; i < cc; ++i) {
-        buf->write_4bytes(csrc[i]);
+    for (size_t i = 0; i < cc_; ++i) {
+        buf->write_4bytes(csrc_[i]);
     }
 
     if (extensions_.exists()) {
@@ -677,62 +699,62 @@ srs_error_t SrsRtpHeader::set_twcc_sequence_number(uint8_t id, uint16_t sn)
 
 uint64_t SrsRtpHeader::nb_bytes()
 {
-    return kRtpHeaderFixedSize + cc * 4 + (extensions_.exists() ? extensions_.nb_bytes() : 0);
+    return kRtpHeaderFixedSize + cc_ * 4 + (extensions_.exists() ? extensions_.nb_bytes() : 0);
 }
 
 void SrsRtpHeader::set_marker(bool v)
 {
-    marker = v;
+    marker_ = v;
 }
 
 bool SrsRtpHeader::get_marker() const
 {
-    return marker;
+    return marker_;
 }
 
 void SrsRtpHeader::set_payload_type(uint8_t v)
 {
-    payload_type = v;
+    payload_type_ = v;
 }
 
 uint8_t SrsRtpHeader::get_payload_type() const
 {
-    return payload_type;
+    return payload_type_;
 }
 
 void SrsRtpHeader::set_sequence(uint16_t v)
 {
-    sequence = v;
+    sequence_ = v;
 }
 
 uint16_t SrsRtpHeader::get_sequence() const
 {
-    return sequence;
+    return sequence_;
 }
 
 void SrsRtpHeader::set_timestamp(uint32_t v)
 {
-    timestamp = v;
+    timestamp_ = v;
 }
 
 uint32_t SrsRtpHeader::get_timestamp() const
 {
-    return timestamp;
+    return timestamp_;
 }
 
 void SrsRtpHeader::set_ssrc(uint32_t v)
 {
-    ssrc = v;
+    ssrc_ = v;
 }
 
 void SrsRtpHeader::set_padding(uint8_t v)
 {
-    padding_length = v;
+    padding_length_ = v;
 }
 
 uint8_t SrsRtpHeader::get_padding() const
 {
-    return padding_length;
+    return padding_length_;
 }
 
 ISrsRtpPayloader::ISrsRtpPayloader()

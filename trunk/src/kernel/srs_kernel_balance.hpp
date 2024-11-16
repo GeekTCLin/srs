@@ -15,13 +15,14 @@
 /**
  * the round-robin load balance algorithm,
  * used for edge pull and other multiple server feature.
+ * 负载均衡。。。。。
  */
 class SrsLbRoundRobin
 {
 private:
     // current selected index.
     int index;
-    // total scheduled count.
+    // total scheduled count.   count 自增用于 取模计算
     uint32_t count;
     // current selected server.
     std::string elem;

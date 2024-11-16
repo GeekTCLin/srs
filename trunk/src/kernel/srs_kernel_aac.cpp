@@ -137,6 +137,7 @@ srs_error_t SrsAacTransmuxer::write_audio(int64_t timestamp, char* data, int siz
     // 2. 解析 aac 数据
     char aac_fixed_header[7];       // adts_fixed_header + adts_variable_header
     if(true) {
+        // 将 RTMP packet 解析出的头部数据写入 acc_fixed_header
         char* pp = aac_fixed_header;
         int16_t aac_frame_length = aac_raw_length + 7;
         

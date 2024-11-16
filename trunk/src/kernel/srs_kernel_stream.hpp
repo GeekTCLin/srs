@@ -14,6 +14,8 @@
 /**
  * the simple buffer use vector to append bytes,
  * it's for hls and http, and need to be refined in future.
+ * 
+ * vector<char> 包裹
  */
 class SrsSimpleStream
 {
